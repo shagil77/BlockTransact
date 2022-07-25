@@ -1,0 +1,88 @@
+package com.shagil.testapplicationblockchain
+
+import android.os.Build
+import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import androidx.annotation.RequiresApi
+import com.shagil.testapplicationblockchain.contractfiles.SimpleStorage
+import com.shagil.testapplicationblockchain.secretfiles.API_KEY
+import com.shagil.testapplicationblockchain.secretfiles.CONTRACT_ADDRESS
+import com.shagil.testapplicationblockchain.secretfiles.HTTP_URL
+import com.shagil.testapplicationblockchain.secretfiles.PRIVATE_KEY
+import io.reactivex.Scheduler
+import io.reactivex.annotations.SchedulerSupport.IO
+import io.reactivex.functions.Consumer
+import io.reactivex.schedulers.Schedulers
+import io.reactivex.schedulers.Schedulers.io
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import link.magic.android.Magic
+import link.magic.android.core.relayer.urlBuilder.CustomNodeConfiguration
+import link.magic.android.modules.web3j.contract.MagicTxnManager
+import org.web3j.abi.datatypes.generated.Uint256
+import org.web3j.crypto.Credentials
+import org.web3j.protocol.Web3j
+import org.web3j.protocol.core.RemoteCall
+import org.web3j.protocol.core.methods.response.EthAccounts
+import org.web3j.protocol.core.methods.response.TransactionReceipt
+import org.web3j.protocol.geth.Geth
+import org.web3j.protocol.http.HttpService
+import org.web3j.tx.gas.DefaultGasProvider
+import org.web3j.tx.gas.StaticGasProvider
+import java.math.BigInteger
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Future
+
+class MainActivity : AppCompatActivity() {
+    private val TAG = "MainActivity"
+    lateinit var web3j: Web3j
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        web3j = Web3j.build(HttpService(HTTP_URL+ API_KEY))
+
+        val gasLimit: BigInteger = BigInteger.valueOf(20_000_000_000L)
+        val gasPrice: BigInteger = BigInteger.valueOf(4300000)
+
+        val credentials = Credentials.create(PRIVATE_KEY)
+
+        val simpleStorage:SimpleStorage = SimpleStorage.load(CONTRACT_ADDRESS, web3j, credentials, gasLimit, gasPrice)
+
+        GlobalScope.launch(Dispatchers.IO) {
+            // read from contract
+            /*val ssSize: CompletableFuture<Uint256>? = simpleStorage.size().sendAsync()
+            val ans:Uint256? = ssSize?.get()*/
+
+            // Reading the state of a smart contract through view functions
+            val sz: Uint256? = simpleStorage.size().send()
+            val an: BigInteger? = sz?.value
+
+            val asn:Int? = an?.toInt()
+            Log.e(TAG, "size of storage: $asn")
+
+            val getElem:Uint256? = simpleStorage.get(BigInteger.valueOf(3)).send()
+            val gE:BigInteger? = getElem?.value
+
+            Log.e(TAG, "Value at 3rd index: ${gE?.toInt()}")
+
+            // write to contract
+            /*val transactionReceipt: Future<TransactionReceipt>? = greeter.changeGreeting("Greeting changed from an Android App (ಠ_ಠ) ").sendAsync()
+            val result = "Successful transaction. Gas used: ${transactionReceipt?.get()?.blockNumber}  ${transactionReceipt?.get()?.gasUsed}"
+            Log.d(TAG, result)*/
+
+            // writing a value to a smart contract!!
+            val transGet: CompletableFuture<TransactionReceipt>? = simpleStorage.set(BigInteger.valueOf(7373)).sendAsync()
+            val result = "Successful transaction. Gas used: ${transGet?.get()?.blockNumber} ${transGet?.get()?.gasUsed}."
+            Log.e(TAG, result)
+
+        }
+    }
+
+
+}
